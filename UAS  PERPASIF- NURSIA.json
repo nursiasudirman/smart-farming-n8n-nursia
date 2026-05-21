@@ -1,0 +1,318 @@
+{
+  "name": "UAS  PERPASIF- NURSIA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "3e34192d-c26a-4960-913f-3017219e22d9",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        16
+      ],
+      "id": "585a734b-07ab-4d31-809f-6dd61162d171",
+      "name": "Webhook",
+      "webhookId": "3e34192d-c26a-4960-913f-3017219e22d9"
+    },
+    {
+      "parameters": {
+        "url": "https://api.openweathermap.org/data/2.5/weather?q=Makassar&appid=dd5a7d8bc8ccf34ce1cc150108492085&units=metric",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16,
+        16
+      ],
+      "id": "0438547e-6621-4839-9718-1a7ded3f61cb",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// Ambil data dari Webhook (ESP32/LoRa)\n// ============================================\nconst webhookData = $('Webhook').first().json.body;\n\nconst gateway        = webhookData.gateway;\nconst soilMoisture   = webhookData.soil_sensor.soil_moisture;\nconst nitrogen       = webhookData.environment_sensor.nitrogen;\nconst phosphorus     = webhookData.environment_sensor.phosphorus;\nconst potassium      = webhookData.environment_sensor.potassium;\nconst temperature    = webhookData.environment_sensor.temperature;\nconst humidity       = webhookData.environment_sensor.humidity;\n\n// ============================================\n// Ambil data dari HTTP Request (OpenWeather)\n// ============================================\nconst weatherData     = $input.first().json;\n\nconst cityName        = weatherData.name;\nconst weatherDesc     = weatherData.weather[0].description;\nconst weatherTemp     = weatherData.main.temp;\nconst weatherHumidity = weatherData.main.humidity;\nconst windSpeed       = weatherData.wind.speed;\n\n// ============================================\n// Gabungkan & buat output rapi\n// ============================================\nconst output = {\n  timestamp: new Date().toISOString(),\n  gateway: gateway,\n\n  sensor_data: {\n    soil_moisture : soilMoisture,\n    nitrogen      : nitrogen,\n    phosphorus    : phosphorus,\n    potassium     : potassium,\n    temperature   : temperature,\n    humidity      : humidity,\n  },\n\n  weather_data: {\n    city        : cityName,\n    description : weatherDesc,\n    temperature : weatherTemp,\n    humidity    : weatherHumidity,\n    wind_speed  : windSpeed,\n  },\n\n  ai_prompt: `\nKamu adalah asisten pertanian cerdas. Berikut data dari lapangan:\n\n📡 Gateway: ${gateway}\n\n🌱 Sensor Tanah & Lingkungan:\n- Kelembaban Tanah : ${soilMoisture}%\n- Nitrogen (N)     : ${nitrogen} mg/kg\n- Phosphorus (P)   : ${phosphorus} mg/kg\n- Potassium (K)    : ${potassium} mg/kg\n- Suhu             : ${temperature}°C\n- Kelembaban Udara : ${humidity}%\n\n🌤️ Kondisi Cuaca di ${cityName}:\n- Cuaca     : ${weatherDesc}\n- Suhu      : ${weatherTemp}°C\n- Kelembaban: ${weatherHumidity}%\n- Angin     : ${windSpeed} m/s\n\nBerikan analisis kondisi lahan dan rekomendasi tindakan pertanian yang perlu dilakukan hari ini.\n  `.trim()\n};\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        16
+      ],
+      "id": "ec5e8434-fe0c-429a-804d-6fe8db667329",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "models/gemini-3-flash-preview"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Kamu adalah AI pertanian yang menganalisis unsur NPK dan memberi rekomendasi pupuk.\n\nTugas:\n- Analisis Nitrogen (N), Phosphorus (P), dan Potassium (K)\n- Tentukan status rendah, normal, atau tinggi\n- Berikan rekomendasi pupuk dan dosis umum\n- Berikan saran singkat kondisi lahan\n- Jawaban singkat, natural, tanpa bullet, tanpa bold, tanpa baris baru, tanpa simbol markdown\n- Maksimal 120 kata\n\nData:\nSoil Moisture: {{$json.sensor_data.soil_moisture}}%\nNitrogen: {{$json.sensor_data.nitrogen}} mg/kg\nPhosphorus: {{$json.sensor_data.phosphorus}} mg/kg\nPotassium: {{$json.sensor_data.potassium}} mg/kg\nTemperature: {{$json.sensor_data.temperature}} °C\nHumidity: {{$json.sensor_data.humidity}}%\nWeather: {{$json.weather_data.description}}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        464,
+        16
+      ],
+      "id": "5f6e79fd-4ba4-4239-8e8a-48cec442c93d",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "EHmh7sEBAQPIGcJu",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1lxBGiGaDTRcg2uELlqMemu7O4e1uRnVKtu1_Us8RLgE",
+          "mode": "list",
+          "cachedResultName": "Smart Farming",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lxBGiGaDTRcg2uELlqMemu7O4e1uRnVKtu1_Us8RLgE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1lxBGiGaDTRcg2uELlqMemu7O4e1uRnVKtu1_Us8RLgE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{$now}}",
+            "gateway": "={{$node[\"Code in JavaScript\"].json.gateway}}",
+            "soil_moisture": "={{$node[\"Code in JavaScript\"].json.sensor_data.soil_moisture}}",
+            "nitrogen": "={{$node[\"Code in JavaScript\"].json.sensor_data.nitrogen}}",
+            "phosphorus": "={{$node[\"Code in JavaScript\"].json.sensor_data.phosphorus}}",
+            "potassium": "={{$node[\"Code in JavaScript\"].json.sensor_data.potassium}}",
+            "temperature": "={{$node[\"Code in JavaScript\"].json.sensor_data.temperature}}",
+            "humidity": "={{$node[\"Code in JavaScript\"].json.sensor_data.humidity}}",
+            "ai_message": "={{ $item(\"0\").$node[\"Message a model\"].json[\"content\"][\"parts\"][\"0\"][\"text\"] }}",
+            "weather": "={{$node[\"Code in JavaScript\"].json.weather_data.description}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gateway",
+              "displayName": "gateway",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "soil_moisture",
+              "displayName": "soil_moisture",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nitrogen",
+              "displayName": "nitrogen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phosphorus",
+              "displayName": "phosphorus",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "potassium",
+              "displayName": "potassium",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "temperature",
+              "displayName": "temperature",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "humidity",
+              "displayName": "humidity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "weather",
+              "displayName": "weather",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ai_message",
+              "displayName": "ai_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        832,
+        16
+      ],
+      "id": "4a89d9db-8fa4-4597-b356-ba4e16c1d77d",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ChQCbtsh7JA8fhlC",
+          "name": "Google Sheets account 9"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1025009174",
+        "text": "=={{ \n`🌱 ANALISIS PERTANIAN AI\n\n📊 Soil Moisture: ${$json.soil_moisture}%\n\n🧪 Nitrogen: ${$json.nitrogen} mg/kg\n🧪 Phosphorus: ${$json.phosphorus} mg/kg\n🧪 Potassium: ${$json.potassium} mg/kg\n\n🌡️ Temperature: ${$json.temperature}°C\n💧 Humidity: ${$json.humidity}%\n\n☁️ Weather: ${$json.weather}\n\n💡 Rekomendasi AI:\n${$json.ai_message}`\n}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1008,
+        16
+      ],
+      "id": "54d2ca63-3152-4f58-9b40-c267f7ae527b",
+      "name": "Send a text message",
+      "webhookId": "e15f8462-bdf3-4b52-9243-e4cdba20ab26",
+      "credentials": {
+        "telegramApi": {
+          "id": "DuiHW3hETr7T0duw",
+          "name": "Telegram account 9"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4e134b6e-7c4b-436c-acbb-c8ceee044860",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "45d38095bad22880dc5e511016651e95f68483dde2626cd427ee0c3280a557ad"
+  },
+  "id": "W6Ws3CV8FhJyy1VC",
+  "tags": []
+}
